@@ -1,0 +1,116 @@
+---
+title: "Peer Assessment Assignment"
+author: "GringisimoViejo"
+date: "December 20, 2015"
+output: html_document
+---
+
+All analysis below assumes that the working directory has already been set. Since each individual uses a different folder structure and naming convention, it is assumed that the reader has already downloaded the file from [the course web page] (https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) and added it to his or her working directory.  
+
+```{r, echo=TRUE, results="hide"}
+activity <- read.csv("activity.csv")
+library(dplyr)
+```
+
+Before continuing with the analysis, the first step is to review the total number of steps taken per day. Note that the NA values have been omitted.
+
+```{r, echo=TRUE, results="hide"}
+activity2 <- na.omit(activity)
+activity2 <- group_by(activity, date)
+activity2 <- summarize(activity2, TotalSteps = sum(steps, na.rm = TRUE))
+```
+
+A histogram better illustrates the total number of steps taken per day. Notice the large number of days for which there are 0 steps, indicating a possible data quality issue such as the device not being used or not being properly configured.
+
+```{r, echo=TRUE, results="hide"}
+windows()
+    hist(activity2$TotalSteps, col = "blue", breaks = 20 ,main = "Total Steps Taken per Day", xlab = "Total Steps")
+dev.off()
+```
+
+```{r, echo=TRUE, results="hide"}
+mean <- mean(activity2$TotalSteps)
+median <- median(activity2$TotalSteps)
+```
+
+The mean number of steps taken per day is `r mean` and the median is `r median`.  
+
+Next, the analysis will examine the number of steps taken per each numbered 5-minute interval of the day. The value used per interval is the mean for that interval across all days of the data set with a time series plot created to better visualize the trends.
+
+```{r, echo=TRUE, results="hide"}
+activity3 <- na.omit(activity)
+activity3 <- group_by(activity3, interval)
+activity3 <- summarize(activity3, MeanSteps = mean(steps, na.rm = TRUE))
+activity3$interval <- as.factor(activity3$interval)
+
+windows()
+    plot(activity3$interval, activity3$MeanSteps, type = "1", pch = "", 
+         xlab = "5-Minute Interval", ylab = "Mean Steps")
+dev.off()
+```
+
+To revisit the possible data quality issue found on the histogram, the number and percentage of NAs in the data set are calculated.
+
+```{r, echo=TRUE, results="hide"}
+NumberNA <- sum(is.na(activity$steps))
+NotNA <- sum(!is.na(activity$steps))
+PercentNA <- (NumberNA / (NumberNA + NotNA)) * 100
+```
+
+There are `r NumberNA` NAs total in the data set as compared to `r NotNA` valid values, or `r PercentNA`% of the total values.
+
+To resolve the missing values, NAs were replaced using a new calculation based on that used previously to calculate the mean activity by interval, with that mean activity then substituted in for the NAs.  
+
+```{r, echo=TRUE, results="hide"}
+activity4 <- na.omit(activity)
+activity4 <- group_by(activity4, interval)
+activity4 <- summarize(activity4, MeanSteps = mean(steps, na.rm = TRUE))
+activity5 <- data.frame(activity)
+activity5$steps2 <- activity5$steps
+ind <- is.na(activity5$steps)
+int <- activity5$interval[ind]
+activity5$steps2[ind] <- activity4$MeanSteps[match(int, activity4$interval)]
+activity6 <- group_by(activity5, date)
+activity6 <- summarize(activity6, TotalSteps = sum(steps2))
+```
+
+The revised values are reported in this updated histogram. When the NAs are replaced with the mean values for the equivalent intervals in other days, the number of days with zero steps declines from ten to two, but otherwise the distribution looks much like it did before.
+
+```{r, echo=TRUE, results="hide"}
+windows()
+    hist(activity6$TotalSteps, col = "blue", breaks = 20 ,main = "Total Steps Taken per Day (Revised)", xlab = "Total Steps")
+dev.off()
+```
+
+```{r, echo=TRUE, results="hide"}
+mean2 <- mean(activity6$TotalSteps)
+median2 <- median(activity6$TotalSteps)
+```
+
+The revised mean number of steps taken per day is `r mean2` and the revised median is `r median2`. 
+
+Next, the days are divided into two levels, Weekday and Weekend, to see if there are any differences between activity at those levels. To conduct this analysis, the levels are defined as Saturday and Sunday comprising the Weekend and the rest of the days comprising the Weekday level.
+
+```{r, echo=TRUE, results="hide"}
+activity5$day <- weekdays(as.Date(activity5$date))
+Weekend <- subset(activity5, activity5$day %in% c("Saturday", "Sunday"))
+    Weekend2 <- group_by(Weekend, interval)
+    Weekend2 <- summarize(Weekend2, MeanSteps = mean(steps, na.rm = TRUE))
+    Weekend2$interval <- as.factor(Weekend2$interval)
+Weekday <- subset(activity5, activity5$day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+    Weekday2 <- group_by(Weekday, interval)
+    Weekday2 <- summarize(Weekday2, MeanSteps = mean(steps, na.rm = TRUE))
+    Weekday2$interval <- as.factor(Weekday2$interval)
+```
+
+A plot is then created to demonstrate the differences between Weekend and Weekday activity levels.
+
+```{r, echo=TRUE, results="hide"}
+windows()
+    par(mfcol = c(2,1))
+      plot(Weekend2$interval, Weekend2$MeanSteps, type = "1", pch = "", 
+          xlab = "5-Minute Interval (Weekend)", ylab = "Mean Steps")
+      plot(Weekday2$interval, Weekday2$MeanSteps, type = "1", pch = "", 
+          xlab = "5-Minute Interval (Weekday)", ylab = "Mean Steps") 
+dev.off()  
+```
